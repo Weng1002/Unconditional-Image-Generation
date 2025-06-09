@@ -338,23 +338,32 @@ Decoder：三層上採樣 + Skip Connection + ConvBlock。
 
 時間嵌入模組：採用 Sinusoidal Positional Embedding + Linear + ReLU。
 
-Input Image (3x64x64)
-    
-[Encoder Block 1]
+```
+Input Image (3×64×64)
+        │
+   [Encoder 1]
+        ↓
+   [Encoder 2]
+        ↓
+   [Encoder 3]
+        ↓
+      MaxPool
+        ↓
+   [Bottleneck + Time Embedding]
+        ↓
+     Upsample
+        ↓
+[Decoder 3 + Skip from Encoder 3]
+        ↓
+[Decoder 2 + Skip from Encoder 2]
+        ↓
+[Decoder 1 + Skip from Encoder 1]
+        ↓
+     Final Conv
+        ↓
+  Output (Predicted Noise)
 
-[Encoder Block 2]
-
-[Encoder Block 3]
-
-[Time Embedding Projection + Bottleneck]
-
-[Decoder Block 3 + Skip Connection]
-
-[Decoder Block 2 + Skip Connection]
-
-[Decoder Block 1 + Skip Connection]
-
-Output Image (3x64x64)
+```
 
 (2) Diffusion 訓練邏輯
 
