@@ -260,7 +260,7 @@ for idx, url in enumerate(tqdm(image_urls, desc="Downloading")):
 
 (2) 設定一些人臉辨識的條件。
 
-# 雙眼亮度判斷（濾掉遮眼、瀏海、墨鏡）
+#### 雙眼亮度判斷（濾掉遮眼、瀏海、墨鏡）
 
 ```
   def eye_region_brightness(img, left_eye, right_eye):
@@ -277,7 +277,7 @@ for idx, url in enumerate(tqdm(image_urls, desc="Downloading")):
       return np.mean(brightness)
 ```
 
-# 雙眼距離過短 → 側臉（或單眼）
+#### 雙眼距離過短 → 側臉（或單眼）
 
 ```
   left_eye, right_eye = face.kps[0], face.kps[1]
@@ -286,7 +286,7 @@ for idx, url in enumerate(tqdm(image_urls, desc="Downloading")):
             continue
 ```
 
-# 雙眼亮度過暗 → 遮眼（瀏海、墨鏡、閉眼）
+#### 雙眼亮度過暗 → 遮眼（瀏海、墨鏡、閉眼）
 
 ```
   brightness = eye_region_brightness(img, left_eye, right_eye)
@@ -294,7 +294,7 @@ for idx, url in enumerate(tqdm(image_urls, desc="Downloading")):
               continue
 ```
 
-# 模糊判斷（Laplacian）
+#### 模糊判斷（Laplacian）
 
 ```
   if is_blurry(face_crop, threshold=50):
