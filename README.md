@@ -13,6 +13,16 @@
 
 ## 操作流程
 
+## 執行順序
+```
+  1、crawel.ipynb
+  2、python filter_face.py
+  3、python face_resize.py
+  4、python train.py            
+  5、python refine_train.py    
+  6、python generate.py
+```
+
 ### 1. Crawl
 
 (1) 先爬取特定年份的所有 PTT 表特板 上的文章，我這邊使用動態調整PTT 的列表ID，來控制年份在 2020-2025。
