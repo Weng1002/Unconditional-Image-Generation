@@ -15,7 +15,7 @@
 
 ### 1. Crawl
 
-(1) 先爬取特定年份的所有 PTT 表特板 上的文章
+(1) 先爬取特定年份的所有 PTT 表特板 上的文章，我這邊使用動態調整PTT 的列表ID，來控制年份在 2020-2025。
 
 ```
   def extract_meta_value(soup, label):
@@ -130,3 +130,128 @@ def crawl_articles():
             
             time.sleep(random.uniform(0.3, 0.5)) 
 ```
+
+(2) 接著只截取包含 **正妹** 關鍵字的文章(包含內文)
+
+```
+  def extract_image_urls(text):
+    pattern = r'https?://[^\s"]+\.(?:jpg|jpeg|png|gif)(?=\b|$)'
+    return re.findall(pattern, text, flags=re.IGNORECASE)
+
+def Keyword(keyword: str):
+    target_articles = []
+    image_urls = []
+
+    with open('2020_articles.jsonl', 'r', encoding='utf-8') as f:
+        for line in f:
+            article = json.loads(line)
+
+            if keyword in article["title"]: # 標題包含關鍵字
+                target_articles.append(article)
+                continue
+
+            # 否則檢查內文是否包含關鍵字
+            url = article["url"]
+            res = requests.get(url, headers=HEADERS, timeout=40)
+            res.raise_for_status()
+
+            soup = BeautifulSoup(res.text, "html.parser")
+            main_content = soup.select_one("#main-content")
+            if not main_content:
+                continue
+
+            text = main_content.get_text(separator="\n")
+            content_split = text.split("※ 發信站")
+            if len(content_split) < 2:
+                continue
+            content = content_split[0]
+
+            if keyword in content:
+                target_articles.append(article)
+
+    print(f"找到 {len(target_articles)} 篇文章（標題或內文含關鍵字「{keyword}」）")
+
+    for article in tqdm(target_articles, desc="處理特定文章"):
+        url = article["url"]
+        print(f"處理中：{url}")
+        try:
+            res = requests.get(url, headers=HEADERS, timeout=10)
+            res.raise_for_status()
+        except Exception as e:
+            print(f"[!] 無法下載文章內容：{e}")
+            continue
+
+        soup = BeautifulSoup(res.text, "html.parser")
+        main_content = soup.select_one("#main-content")
+        if not main_content:
+            continue
+
+        text = main_content.get_text(separator="\n")
+        content_split = text.split("※ 發信站")
+        if len(content_split) < 2:
+            print("無法找到發信站標記，跳過")
+            continue
+
+        content = content_split[0]
+
+        print("符合條件，開始擷取圖片連結")
+
+        pushes = soup.select("div.push span.push-content")
+        for push in pushes:
+            content += push.text
+
+        image_urls += extract_image_urls(content)
+        time.sleep(random.uniform(0.1, 0.3))
+
+    unique_image_urls = list(set(image_urls))
+
+    result = {
+        "image_urls": unique_image_urls
+    }
+
+    outname = f"2020_keyword_{keyword}.json"
+    with open(outname, "w", encoding="utf-8") as f:
+        json.dump(result, f, indent=2, ensure_ascii=False)
+
+    print(f"完成 keyword 抽圖：{outname}，共 {len(unique_image_urls)} 張圖片")
+
+```
+
+(3) 將擁有 **正妹** 中的 img_urls 都下載到 raw_images (因為我伺服器的硬碟不夠大，所以我後面處理 raw_images 後就刪除原照片)
+
+```
+  save_dir = '../raw_images/2020_正妹_images'
+os.makedirs(save_dir, exist_ok=True)
+
+with open('2020_keyword_正妹.json', 'r', encoding='utf-8') as f:
+    data = json.load(f)
+    image_urls = data.get("image_urls", [])
+
+print(f"共載入 {len(image_urls)} 張圖片網址，開始下載")
+
+# 開始下載圖片
+for idx, url in enumerate(tqdm(image_urls, desc="Downloading")):
+    if url.startswith("https://d.img.vision/dddshay/"):
+        print(f"[!] 跳過：{url}")
+        continue
+    try:
+        response = requests.get(
+            url,
+            timeout=35,
+            headers={
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36',
+                'Referer': 'https://www.google.com/'
+            }
+        )
+        response.raise_for_status()
+        
+        image = Image.open(BytesIO(response.content)).convert("RGB")
+        filename = f"{idx:05d}.png" # 儲存為 PNG 格式
+        filepath = os.path.join(save_dir, filename)
+        image.save(filepath, format="PNG")
+
+    except Exception as e:
+        print(f"[!] 第 {idx} 張圖片處理失敗：{url} | 錯誤：{e}")
+```
+
+
