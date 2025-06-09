@@ -324,9 +324,82 @@ for idx, url in enumerate(tqdm(image_urls, desc="Downloading")):
       cv2.imwrite(save_path, resized_img)
 ```
 
+### 4. Train (先訓練 1000 epoch)
 
+(1) 模型架構
 
+本專案的模型主體為 BetterUNetWithTime，整體架構如下：
 
+Encoder：三層 ConvBlock（含 GroupNorm 與 LeakyReLU），每層做 downsampling。
 
+Bottleneck：接收時間嵌入（Time Embedding）後與中間特徵相加。
+
+Decoder：三層上採樣 + Skip Connection + ConvBlock。
+
+時間嵌入模組：採用 Sinusoidal Positional Embedding + Linear + ReLU。
+
+Input Image (3x64x64)
+    |
+[Encoder Block 1]
+    |
+[Encoder Block 2]
+    |
+[Encoder Block 3]
+    |
+[Time Embedding Projection + Bottleneck]
+    |
+[Decoder Block 3 + Skip Connection]
+    |
+[Decoder Block 2 + Skip Connection]
+    |
+[Decoder Block 1 + Skip Connection]
+    |
+Output Image (3x64x64)
+
+(2) Diffusion 訓練邏輯
+
+採用 GaussianDiffusion 模組實作 DDPM（Denoising Diffusion Probabilistic Model）流程。
+
+對每張圖像加入隨機 timestep 的高斯噪聲，再由模型學習預測噪聲。
+
+損失函數為 L1 + L2 混合損失：
+
+```
+loss = 0.25 * F.l1_loss(pred_noise, true_noise) + 0.75 * F.mse_loss(pred_noise, true_noise)
+```
+
+(3) 資料處理與增強
+
+使用自定義 UnlabeledImageDataset 讀取圖像，並進行以下資料增強：
+
+- Resize + CenterCrop
+- Horizontal Flip（p=0.5）
+- Random Rotation（±5 度）
+- ColorJitter（亮度、對比、飽和度、色調）
+- 自定義 Gaussian Blur + Sharpen（隨機套用）
+
+(4) EMA 模型追蹤(強化模型細節訓練)
+
+使用 EMA（Exponential Moving Average）追蹤模型參數，平滑訓練過程。
+
+當訓練步數 > 10,000 時才開始更新。
+
+(5) 混合精度訓練（AMP）
+
+使用 torch.cuda.amp 自動混合精度進行前向與反向運算，節省顯存並加速訓練。
+
+(6) 模型儲存與圖像取樣
+
+每 50 個 epoch 儲存模型檔與對應的生成樣本。
+
+### 5. Refine-Train (再訓練 500 epoch)
+
+額外加入 LPIPS Perceptual Loss：衡量生成圖與原圖之間的感知相似度，以及取消原本的資料增強功能，來讓模型開始學習原照片。
+
+### 6. Generate / inference
+
+載入 refine 後最佳的 EMA 模型，使用 GaussianDiffusion 中 sample() 函數反向逐步去噪。
+
+每張圖片以 save_image 儲存為 PNG 格式，命名為 00001.png、00002.png ...。
 
 
