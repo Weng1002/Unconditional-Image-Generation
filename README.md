@@ -131,7 +131,7 @@ def crawl_articles():
             time.sleep(random.uniform(0.3, 0.5)) 
 ```
 
-(2) 接著只截取包含 **正妹** 關鍵字的文章(包含內文)
+(2) 接著只截取包含 **正妹** 關鍵字的文章 ( 包含內文 )
 
 ```
   def extract_image_urls(text):
@@ -217,7 +217,7 @@ def Keyword(keyword: str):
 
 ```
 
-(3) 將擁有 **正妹** 中的 img_urls 都下載到 raw_images (因為我伺服器的硬碟不夠大，所以我後面處理 raw_images 後就刪除原照片)
+(3) 將擁有 **正妹** 中的 img_urls 都下載到 raw_images ( 因為我伺服器的硬碟不夠大，所以我後面處理 raw_images 後就刪除原照片 )
 
 ```
   save_dir = '../raw_images/2020_正妹_images'
@@ -253,5 +253,54 @@ for idx, url in enumerate(tqdm(image_urls, desc="Downloading")):
     except Exception as e:
         print(f"[!] 第 {idx} 張圖片處理失敗：{url} | 錯誤：{e}")
 ```
+
+### 2. Filter_face
+
+(1) 利用 OpenCV 去篩選出只有正臉的人臉照
+
+(2) 設定一些人臉辨識的條件。
+
+# 雙眼亮度判斷（濾掉遮眼、瀏海、墨鏡）
+
+```
+  def eye_region_brightness(img, left_eye, right_eye):
+      patch_size = 10  # pixel
+      eyes = [left_eye, right_eye]
+      brightness = []
+      for eye in eyes:
+          x, y = int(eye[0]), int(eye[1])
+          patch = img[max(0, y - patch_size):y + patch_size, max(0, x - patch_size):x + patch_size]
+          if patch.size == 0:
+              return 0  # 若 patch 無效則視為太暗
+          gray = cv2.cvtColor(patch, cv2.COLOR_BGR2GRAY)
+          brightness.append(np.mean(gray))
+      return np.mean(brightness)
+```
+
+# 雙眼距離過短 → 側臉（或單眼）
+
+```
+  left_eye, right_eye = face.kps[0], face.kps[1]
+        eye_dist = np.linalg.norm(left_eye - right_eye)
+        if eye_dist < 15:
+            continue
+```
+
+# 雙眼亮度過暗 → 遮眼（瀏海、墨鏡、閉眼）
+
+```
+  brightness = eye_region_brightness(img, left_eye, right_eye)
+          if brightness < 60:
+              continue
+```
+
+# 模糊判斷（Laplacian）
+
+```
+  if is_blurry(face_crop, threshold=50):
+            continue
+```
+
+
 
 
