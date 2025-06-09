@@ -301,6 +301,32 @@ for idx, url in enumerate(tqdm(image_urls, desc="Downloading")):
             continue
 ```
 
+(3) 最後一步，利用人工再次進行篩選，來讓datasets的 FID 能低於 Baseline。
+
+### 3. face_resize
+
+(1) 將清洗後的 datasets 的大小轉成任務所需要的 64x64。
+
+```
+  target_size = (64, 64)
+
+  for fname in tqdm(os.listdir(input_dir)):
+      if not fname.lower().endswith(".png"):
+          continue
+  
+      img_path = os.path.join(input_dir, fname)
+      img = cv2.imread(img_path)
+      if img is None:
+          continue
+  
+      resized_img = cv2.resize(img, target_size)
+      save_path = os.path.join(output_dir, fname)
+      cv2.imwrite(save_path, resized_img)
+```
+
+
+
+
 
 
 
